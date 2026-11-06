@@ -1,0 +1,588 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- Fordham Daily Task V4.0 --><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#0F1B2D">
+<title>Fordham - Manager</title><link rel="manifest" href="/FordhamDailyTask/manifest.json"><link rel="apple-touch-icon" href="/FordhamDailyTask/icons/general-192.png"><link rel="stylesheet" href="css/style.css?v=4.5.13"></head>
+<body class="nt-theme nt-manager-desktop">
+<header class="topbar">
+  <div class="brand"><div class="brand-mark">FD</div><div class="brand-text"><div class="brand-kicker">Fordham</div><h1>Operations</h1><p>Manager Control</p></div></div>
+  <div class="top-actions"><span id="connectionStatus" class="connection-pill"><span class="connection-dot"></span>Checking…</span><button id="logout" class="btn nt-manager-logout" type="button">Logout</button></div>
+</header>
+<main class="container">
+<nav class="manager-nav">
+  <button class="active" data-section="schedule">Schedule Editor</button>
+  <button data-section="people">People & PINs</button>
+  <button data-section="availability">Staff Availability</button>
+  <button data-section="cover">Shift Cover</button>
+  <button data-section="reports">Reports</button>
+  <button data-section="hotfood">Hot Food / Compliance</button>
+</nav>
+
+<section id="schedule" class="manager-section">
+  <div class="page-heading"><div><span class="eyebrow">Schedule workspace</span><h2>Manage the day</h2><p id="managerDate"></p></div></div>
+  <div class="nt-editor-tabs" role="group" aria-label="Unified Schedule Editor">
+    <button type="button" class="active" id="ntDayTab" aria-pressed="true">Day Editor</button>
+    <button type="button" id="ntWeekTab" aria-pressed="false">Weekly Editor · Staff &amp; Effort</button>
+    <span>Desktop-first scheduling. Tablet General View remains unchanged.</span>
+  </div>
+  <div id="ntDayWorkspace">
+  <div class="date-navigator card compact-card">
+    <button id="mgrPrevDate" class="btn secondary square-btn">←</button>
+    <div class="date-nav-center"><strong id="mgrNavDate"></strong><input id="mgrDatePicker" type="date"></div>
+    <button id="mgrNextDate" class="btn secondary square-btn">→</button>
+    <button id="mgrToday" class="btn secondary small">Today</button>
+  </div>
+  <div id="historicalReadOnlyBanner" class="historical-readonly-banner" hidden>
+    <div>
+      <strong>Historical schedule — read only</strong>
+      <span>This saved date is available for review and audit. Past tasks cannot be edited, skipped, removed or recreated.</span>
+    </div>
+    <button id="historicalGoToday" class="btn secondary small" type="button">Go to Today</button>
+  </div>
+
+  <div class="schedule-mode-bar">
+    <div><strong>Schedule view</strong><span id="scheduleModeHelp">Compact by default. Edit one task at a time.</span></div>
+    <button id="toggleAdvancedEdit" class="btn secondary small" type="button">▾ Advanced: Edit all tasks</button>
+  </div>
+  <div class="manager-tip"><strong>How editing works:</strong> edit directly in the schedule. <b>Save this date only</b> changes only the selected day (maximum 90 days ahead). <b>Every weekday going forward</b> changes that weekday from its effective date onward; historical and existing protected exceptions stay unchanged.</div>
+  <div id="managerSlots"></div>  </div>
+  <div id="ntWeeklyWorkspace" hidden>
+    <div class="nt-week-toolbar">
+      <div><h3>Weekly Schedule Editor</h3><p>Tasks as rows · Monday–Sunday · Click a cell to edit that weekday.</p></div>
+      <div class="nt-week-controls">
+        <button id="ntWeekPrev" class="btn secondary small">←</button>
+        <input id="ntWeekDate" type="date" aria-label="Week starting">
+        <button id="ntWeekNext" class="btn secondary small">→</button>
+        <button id="ntWeekToday" class="btn secondary small">This Week</button>
+        <button id="ntWeekReload" class="btn secondary small">↻ Refresh</button>
+        <button id="ntWeekCreate" class="btn">＋ Create Task</button>
+        <button id="ntBulkToggle" class="btn small">▢ Bulk Edit</button>
+      </div>
+    </div>
+    <div class="nt-matrix-wrap"><table class="nt-week-table"><thead id="ntWeekHead"></thead><tbody id="ntWeekRows"></tbody></table></div>
+    <section id="ntBulkControl" class="nt-bulk-control" hidden>
+      <header><h3>Bulk Edit · <span id="ntBulkCount">0 selected</span></h3><p>Select task/weekday cells above; review before saving together.</p></header>
+      <div class="nt-bulk-form">
+        <label>Field to change<select id="ntBulkField"><option value="assignedTo">Assigned staff</option><option value="sourceTime">Scheduled time</option><option value="slotId">Time slot</option><option value="effortMinutes">Effort minutes</option><option value="reportCategory">Category</option><option value="photoRequired">Photo required</option></select></label>
+        <label>New value<span id="ntBulkValueHolder"></span></label>
+        <div class="nt-bulk-extra-wrap"><div id="ntBulkExtraRows"></div><button id="ntBulkAddField" type="button" class="btn secondary small">＋ Add another field</button></div>
+        <label>Save scope<select id="ntBulkScope"><option value="future">Selected weekdays from effective date</option><option value="once">Selected dates in this week only (within 90 days)</option></select></label>
+        <label>Effective from<input id="ntBulkEffective" type="date"></label>
+        <button id="ntBulkReview" class="btn">Review Selected Changes</button>
+      </div>
+      <div id="ntBulkReviewPanel" class="nt-bulk-review" hidden></div>
+    </section>
+  </div>
+
+</section>
+
+<section id="people" class="manager-section" hidden>
+  <div class="card elevated">
+    <div class="section-intro">
+      <div>
+        <span class="eyebrow">People & PINs</span>
+        <h2>Fordham team</h2>
+        <p class="muted">The roster is shown first. Add/Edit details stay collapsed until you need them.</p>
+      </div>
+      
+    </div>
+    <div class="table-wrap people-table-wrap" style="margin-top:14px">
+      <table class="people-table">
+        <thead><tr><th>Staff</th><th>PIN</th><th>Actions</th></tr></thead>
+        <tbody id="peopleRows"></tbody>
+      </table>
+    </div>
+    <button id="openAddPerson" class="btn secondary people-add-bottom" type="button">+ Add staff member</button>
+  </div>
+
+  <div id="personEditorCard" class="card elevated person-editor-card" hidden>
+    <div class="section-intro">
+      <div>
+        <span class="eyebrow" id="personEditorKicker">Add person</span>
+        <h2 id="personEditorTitle">Add a new person</h2>
+        <p class="muted">Open only when you need to add or edit a team member.</p>
+      </div>
+      <button id="closePersonEditor" class="btn secondary small" type="button">Close</button>
+    </div>
+    <input id="personEditId" type="hidden">
+    <div class="form-grid">
+      <div class="field"><label class="field-label">Name <span class="required">*</span></label><input id="personName" placeholder="Name"><div class="field-error" hidden></div></div>
+      <div class="field"><label class="field-label">Role</label><select id="personRole"><option value="staff">Staff</option><option value="assignee">Assignee only</option><option value="manager">Manager</option></select></div>
+      <div class="field"><label class="field-label">Staff ID</label><input id="personStaffId" placeholder="e.g. 1"><div class="field-error" hidden></div></div>
+      <div class="field"><label class="field-label">PIN</label><input id="personPin" type="text" inputmode="numeric" maxlength="8" autocomplete="one-time-code" data-pin-input="true" placeholder="4 digits for staff"><div class="field-error" hidden></div></div>
+      <div class="field"><label class="field-label">Confirm PIN</label><input id="personPinConfirm" type="text" inputmode="numeric" maxlength="8" autocomplete="one-time-code" data-pin-input="true" placeholder="Repeat PIN"><div class="field-error" hidden></div></div>
+      <div class="field"><label class="field-label">Status</label><select id="personActive"><option value="true">Active</option><option value="false">Inactive</option></select></div>
+    </div>
+    <div class="form-actions">
+      <button id="savePersonBtn" class="btn">Save Person</button>
+      <button id="cancelPersonEdit" class="btn secondary" type="button">Cancel</button>
+    </div>
+    <div id="personResult" class="inline-message" hidden></div>
+  </div>
+</section>
+
+
+<section id="availability" class="manager-section" hidden>
+  <div class="card elevated">
+    <div class="section-intro">
+      <div>
+        <span class="eyebrow">Weekly staff rota</span>
+        <h2>Staff Availability</h2>
+        <p class="muted">These working hours control which people appear in Staff Assignment. Use comma-separated shifts when someone works two periods in one day.</p>
+      </div>
+      <button id="saveAvailability" class="btn" type="button">Save Availability</button>
+    </div>
+
+    <div class="availability-legend">
+      <span><strong>Example:</strong> 05:30-13:00, 15:00-20:00</span>
+      <span>Leave blank = not available for normal task assignment.</span>
+      <span>Delivery-only periods are intentionally not treated as shop-floor availability.</span>
+    </div>
+
+    <div id="availabilityResult" class="inline-message" hidden></div>
+
+    <div class="table-wrap availability-table-wrap">
+      <table class="availability-table">
+        <thead>
+          <tr>
+            <th class="availability-name-col">Staff</th>
+            <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+          </tr>
+        </thead>
+        <tbody id="availabilityRows"></tbody>
+      </table>
+    </div>
+
+    <div class="availability-notes card compact-card">
+      <strong>Delivery-only notes from the supplied rota</strong>
+      <span>Seran — Monday delivery (4h, time varies with the delivery)</span>
+      <span>Jude — Thursday delivery (4h, time varies with the delivery)</span>
+      <span>These are excluded from normal task assignment unless you manually enter working hours above.</span>
+    </div>
+  </div>
+</section>
+
+<section id="cover" class="manager-section" hidden>
+  <div class="page-heading">
+    <div>
+      <span class="eyebrow">Shift cover scheduler</span>
+      <h2>Manage cover for any date</h2>
+      <p id="coverDateHeading"></p>
+    </div>
+  </div>
+
+  <div class="date-navigator card compact-card">
+    <button id="coverPrevDate" class="btn secondary square-btn" type="button">←</button>
+    <div class="date-nav-center">
+      <strong id="coverNavDate"></strong>
+      <input id="coverDatePicker" type="date">
+    </div>
+    <button id="coverNextDate" class="btn secondary square-btn" type="button">→</button>
+    <button id="coverToday" class="btn secondary small" type="button">Today</button>
+  </div>
+
+  <div class="cover-layout">
+    <article class="card elevated cover-control-card">
+      <div class="section-intro">
+        <div>
+          <span class="eyebrow">Whole-slot cover</span>
+          <h3>Reassign a person's tasks</h3>
+          <p class="muted">Choose a person, operational slot and covering person. The matching tasks are previewed before you apply the change.</p>
+        </div>
+      </div>
+
+      <div class="cover-form-grid">
+        <label class="field">
+          <span class="field-label">Person off</span>
+          <select id="coverFrom"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Operational slot</span>
+          <select id="coverSlot"></select>
+        </label>
+        <label class="field">
+          <span class="field-label">Covered by</span>
+          <select id="coverTo"></select>
+        </label>
+      </div>
+
+      <div class="cover-scope-actions">
+        <button id="coverDayBtn" class="btn" type="button">Apply to This Date Only</button>
+        <button id="coverFutureBtn" class="btn secondary" type="button">Every Weekday From This Date Onward</button>
+      </div>
+
+      <div class="cover-scope-help">
+        <div>
+          <strong>This date only</strong>
+          <span>Changes only the selected day's matching tasks.</span>
+        </div>
+        <div>
+          <strong id="coverFutureHelpTitle">Every weekday going forward</strong>
+          <span id="coverFutureHelpText">Makes the same cover arrangement permanent for this weekday from the selected date onward. Previous dates remain unchanged.</span>
+        </div>
+      </div>
+
+      <div id="coverResult" class="inline-message" hidden></div>
+    </article>
+
+    <article class="card elevated cover-preview-card">
+      <div class="cover-preview-head">
+        <div>
+          <span class="eyebrow">Preview</span>
+          <h3>Tasks that will move</h3>
+        </div>
+        <span id="coverAffectedCount" class="report-count-badge">0 tasks</span>
+      </div>
+
+      <div id="coverCapacityNote" class="cover-capacity-note"></div>
+
+      <div class="cover-preview-columns" aria-hidden="true">
+        <span>Task</span><span>Current assignee</span><span>Effort</span><span>Status</span>
+      </div>
+      <div id="coverPreviewRows" class="cover-preview-rows"></div>
+    </article>
+  </div>
+</section>
+
+
+<section id="bulk" class="manager-section" hidden>
+  <div class="card elevated">
+    <div class="section-intro">
+      <div>
+        <span class="eyebrow">Existing weekly schedule editor</span>
+        <h2>Staff Assignment — Weekly Matrix</h2>
+        <p class="muted">Assign staff after the weekly effort setup is saved. Each day shows only people working during that task's time.</p>
+      </div>
+    </div>
+
+    <div class="date-navigator card compact-card bulk-date-nav">
+      <button id="bulkPrevWeek" class="btn secondary square-btn" type="button">←</button>
+      <div class="date-nav-center">
+        <strong id="bulkWeekText"></strong>
+        <input id="bulkWeekPicker" type="date" title="Choose any date inside the week">
+      </div>
+      <button id="bulkNextWeek" class="btn secondary square-btn" type="button">→</button>
+      <button id="bulkThisWeek" class="btn secondary small" type="button">This Week</button>
+      <button id="bulkLoadWeek" class="btn small" type="button">Refresh Week</button>
+    </div>
+
+    <div class="bulk-filter-bar">
+      <label class="bulk-filter-field"><span>Slot</span>
+        <select id="bulkSlotFilter"><option value="all">All slots</option></select>
+      </label>
+      <label class="bulk-toggle-filter"><input id="bulkOnlyUnassigned" type="checkbox"> Unassigned only</label>
+      <button id="bulkResetFilters" class="btn secondary small" type="button">Reset filters</button>
+      <span class="assignment-filter-note">✓ Full shift coverage &nbsp; ◐ Partial coverage</span>
+    </div>
+
+    <div id="bulkSummary" class="bulk-summary"></div>
+    <div id="bulkResult" class="inline-message" hidden></div>
+
+    <div class="bulk-save-bar">
+      <button id="bulkSaveWeek" class="btn secondary" type="button">Save Assignments to This Week</button>
+      <button id="bulkSaveFuture" class="btn" type="button">Apply Assignments to Future Schedule</button>
+      <span class="muted">Save changes to this week for date-specific edits, or apply changed recurring assignments to the future schedule.</span>
+    </div>
+
+    <div class="table-wrap bulk-matrix-wrap">
+      <table class="bulk-matrix-table">
+        <thead>
+          <tr>
+            <th class="bulk-task-sticky">Task / Slot</th>
+            <th data-day="mon">Monday</th>
+            <th data-day="tue">Tuesday</th>
+            <th data-day="wed">Wednesday</th>
+            <th data-day="thu">Thursday</th>
+            <th data-day="fri">Friday</th>
+            <th data-day="sat">Saturday</th>
+            <th data-day="sun">Sunday</th>
+          </tr>
+        </thead>
+        <tbody id="bulkMatrixRows"></tbody>
+      </table>
+    </div>
+
+    <div class="bulk-note">
+      <strong>Live editor:</strong>
+      <span>This page loads the current saved week only. Blank or removed task-days stay blank. Change an assignee and save only the scope you intend.</span>
+    </div>
+  </div>
+</section>
+
+
+<section id="effort" class="manager-section" hidden>
+  <div class="card elevated">
+    <div class="section-intro">
+      <div>
+        <span class="eyebrow">Live weekly editor</span>
+        <h2>Effort Allocation</h2>
+        <p class="muted">Loads the current active weekly pattern only. Edit effort or weekday times; a blank time means the task does not run that weekday.</p>
+      </div>
+    </div>
+
+    <div class="date-navigator card compact-card effort-date-nav">
+      <button id="effortPrevWeek" class="btn secondary square-btn" type="button">←</button>
+      <div class="date-nav-center">
+        <strong id="effortWeekText"></strong>
+        <input id="effortWeekPicker" type="date" title="Choose any date inside the week">
+      </div>
+      <button id="effortNextWeek" class="btn secondary square-btn" type="button">→</button>
+      <button id="effortThisWeek" class="btn secondary small" type="button">This Week</button>
+      <button id="effortLoadWeek" class="btn small" type="button">Refresh Current Data</button>
+    </div>
+
+    <div class="effort-toolbar">
+      <label class="bulk-filter-field"><span>Slot</span>
+        <select id="effortSlotFilter"><option value="all">All slots</option></select>
+      </label>
+      <label class="bulk-toggle-filter" title="Show only tasks without effort minutes" style="display:none"><input id="effortOnlyMissing" type="checkbox"> Effort not set only</label>
+      <button id="effortAddTask" class="btn secondary small" type="button">+ Add Task</button>
+      <button id="effortResetFilters" class="btn secondary small" type="button">Reset filters</button>
+      <span class="effort-sort-note">Each weekday is independent. Blank days stay inactive until you enter a time.</span>
+    </div>
+
+    <section id="effortNewTaskPanel" class="card effort-new-task-panel" hidden aria-label="Create a weekly task">
+      <div class="effort-new-head"><h3>Add a weekly task</h3><button type="button" id="effortNewCancel" class="btn secondary small">Cancel</button></div>
+      <p class="muted">Choose the days and their times. Blank days are not scheduled. This creates a new task; existing tasks remain unchanged.</p>
+      <div class="effort-new-basics">
+        <label>Task name<input id="effortNewName" maxlength="140" placeholder="Enter task name"></label>
+        <label>Effort (minutes)<input id="effortNewMinutes" type="number" min="1" step="1" placeholder="e.g. 15"></label>
+        <label>Assignee<select id="effortNewAssignee"></select></label>
+        <label class="effort-new-photo"><input type="checkbox" id="effortNewPhoto"> Photo required</label>
+      </div>
+      <div id="effortNewWeek" class="effort-new-week"></div>
+      <div id="effortNewError" class="hf-validation-error" role="alert"></div>
+      <button type="button" class="btn" id="effortNewCreate">Create weekly task</button>
+    </section>
+    <div id="effortSummary" class="bulk-summary"></div>
+    <div id="effortResult" class="inline-message" hidden></div>
+
+    <div class="bulk-save-bar">
+      <button id="effortSaveTemplate" class="btn" type="button">Save Weekly Task Setup</button>
+      <span class="muted">Time Order: each day’s time decides its operational slot and order. Clear a day’s time to remove that task from that weekday and from Staff Assignment.</span>
+    </div>
+
+    <div class="table-wrap effort-template-wrap">
+      <table class="effort-template-table effort-daily-time-table">
+        <thead>
+          <tr>
+            <th class="effort-task-sticky">Task</th>
+            <th>Effort</th>
+            <th data-effort-day="mon">Mon</th>
+            <th data-effort-day="tue">Tue</th>
+            <th data-effort-day="wed">Wed</th>
+            <th data-effort-day="thu">Thu</th>
+            <th data-effort-day="fri">Fri</th>
+            <th data-effort-day="sat">Sat</th>
+            <th data-effort-day="sun">Sun</th>
+          </tr>
+        </thead>
+        <tbody id="effortMatrixRows"></tbody>
+      </table>
+    </div>
+
+    <div class="bulk-note">
+      <strong>How it works:</strong>
+      <span>Edit only the days you need. Clear a time to remove that task from that weekday going forward; enter a time to add it back. Saving changed rows does not repopulate other blank weekdays.</span>
+    </div>
+  </div>
+</section>
+
+<section id="reports" class="manager-section" hidden>
+  <div class="report-shell card elevated">
+    <div class="section-intro report-title-row">
+      <div>
+        <span class="eyebrow">Management intelligence</span>
+        <h2>Operations Reports</h2>
+        <p class="muted">Review performance, workload and exceptions using one shared date and staff filter.</p>
+      </div>
+      <button id="exportReportBtn" class="btn secondary">Export filtered CSV</button>
+    </div>
+
+    <nav class="report-tabs" aria-label="Report views">
+      <button class="active" data-report-tab="overview">Overview</button>
+      <button data-report-tab="staff">Staff</button>
+      <button data-report-tab="tasks">Tasks</button>
+      <button data-report-tab="slots">Time Slots</button>
+      <button data-report-tab="exceptions">Exceptions / Audit</button>
+    </nav>
+
+    <div class="report-filter-panel">
+      <div class="report-period-pills" aria-label="Report period">
+        <button class="active" data-report-period="today">Today</button>
+        <button data-report-period="week">This Week</button>
+        <button data-report-period="month">This Month</button>
+        <button data-report-period="custom">Custom Range</button>
+      </div>
+
+      <div class="report-filter-grid">
+        <label class="report-filter-field">
+          <span>Staff</span>
+          <select id="reportStaff">
+            <option value="all">All Staff</option>
+          </select>
+        </label>
+
+        <label id="reportInvolvementField" class="report-filter-field" hidden>
+          <span>Staff involvement</span>
+          <select id="reportInvolvement">
+            <option value="assigned">Assigned to them</option>
+            <option value="completed">Completed by them</option>
+            <option value="either">Either assigned or completed</option>
+          </select>
+        </label>
+
+        <div id="customReportDates" class="report-custom-dates" hidden>
+          <label class="report-filter-field">
+            <span>From</span>
+            <input id="reportStart" type="date">
+          </label>
+          <label class="report-filter-field">
+            <span>To</span>
+            <input id="reportEnd" type="date">
+          </label>
+          <button id="runReportBtn" class="btn small report-apply-btn">Apply dates</button>
+        </div>
+
+        <button id="resetReportFilters" class="btn secondary small report-reset-btn" type="button">Reset filters</button>
+      </div>
+
+      <div class="report-scope-line">
+        <strong id="reportScopeText">Today · All Staff</strong>
+        <span id="reportCoverage"></span>
+      </div>
+    </div>
+  </div>
+
+  <section class="report-panel active" data-report-panel="overview">
+    <div id="reportSummary" class="stats-grid report-summary-grid"></div>
+
+    <div class="report-overview-grid">
+      <article class="card elevated report-insight-card">
+        <div class="report-panel-heading">
+          <div><span class="eyebrow">Completion</span><h3>Operational outcome</h3></div>
+        </div>
+        <div id="reportOutcomeBreakdown" class="report-kpi-list"></div>
+      </article>
+
+      <article class="card elevated report-insight-card">
+        <div class="report-panel-heading">
+          <div><span class="eyebrow">Management attention</span><h3>Exceptions snapshot</h3></div>
+        </div>
+        <div id="reportExceptionSnapshot" class="report-kpi-list"></div>
+      </article>
+    </div>
+  </section>
+
+  <section class="report-panel" data-report-panel="staff" hidden>
+    <div class="card elevated">
+      <div class="report-panel-heading">
+        <div><span class="eyebrow">People</span><h2>Staff / assignee view</h2><p id="staffReportNote" class="muted"></p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Person</th><th>Assigned</th><th>Completed</th><th>Late</th><th>Missed</th><th>Reassigned</th><th>Done by another</th><th>Completion</th><th>Known effort</th></tr></thead>
+          <tbody id="staffReportRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="report-panel" data-report-panel="tasks" hidden>
+    <div class="card elevated">
+      <div class="report-panel-heading">
+        <div><span class="eyebrow">Operations</span><h2>Task view</h2><p class="muted">See which tasks are completed consistently and where misses or delays occur.</p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Task</th><th>Scheduled</th><th>Completed</th><th>Late</th><th>Missed</th><th>Completion</th><th>Known effort</th></tr></thead>
+          <tbody id="taskReportRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="report-panel" data-report-panel="slots" hidden>
+    <div class="card elevated">
+      <div class="report-panel-heading">
+        <div><span class="eyebrow">Time windows</span><h2>Time-slot view</h2><p class="muted">Compare completion and known workload across the fixed operational slots.</p></div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Slot</th><th>Tasks</th><th>Completed</th><th>Late</th><th>Missed</th><th>Completion</th><th>Known effort</th><th>Effort unset</th></tr></thead>
+          <tbody id="slotReportRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <section class="report-panel" data-report-panel="exceptions" hidden>
+    <div class="card elevated">
+      <div class="report-panel-heading">
+        <div><span class="eyebrow">Audit trail</span><h2>Exceptions / Audit</h2><p class="muted">Missed, late, reassigned, cross-completed, unassigned and effort-not-set records.</p></div>
+        <span id="exceptionCountBadge" class="report-count-badge">0 exceptions</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Date</th><th>Exception</th><th>Task</th><th>Assigned</th><th>Completed by</th><th>Slot</th><th>Effort</th></tr></thead>
+          <tbody id="exceptionRows"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+</section>
+
+
+<section id="hotfood" class="manager-section" hidden>
+  <div class="page-heading hf-heading"><div><span class="eyebrow">Controlled compliance module</span><h2>Hot Food / Compliance</h2><p>Production, hot holding, sign-off and audit controls. The module is isolated from normal Daily Tasks and can be disabled safely.</p></div><span id="hfStateBadge" class="hf-state-badge disabled">DISABLED</span></div>
+  <div id="hfDisabledNotice" class="hf-disabled-notice"><strong>Hot Food is currently disabled.</strong><span>Existing Fordham features continue normally. Configure products and the cooking plan here, then enable the module from Settings when ready.</span></div>
+  <nav class="hf-subnav">
+    <button class="active" data-hf-target="products">Products</button><button data-hf-target="plan">Initial Cooking Plan</button><button data-hf-target="month">Monthly Schedule</button><button data-hf-target="summary">Workload &amp; Waste</button><button data-hf-target="reports">Compliance Reports</button><button data-hf-target="signoff">Weekly Sign-off</button><button data-hf-target="audit">Audit History</button><button data-hf-target="settings">Settings</button>
+  </nav>
+
+  <div class="hf-panel" data-hf-panel="products">
+    <div class="card elevated"><div class="section-intro"><div><span class="eyebrow">Product master</span><h3>Hot Food Products</h3><p class="muted">Staff can only select active products. Deactivating a product never removes historical records.</p></div></div>
+      <div class="table-wrap"><table><thead><tr><th>Final Product</th><th>Status</th><th></th></tr></thead><tbody id="hfProductRows"></tbody></table></div>
+      <div class="hf-add-row"><input id="hfNewProduct" placeholder="New final product name"><button id="hfAddProduct" class="btn" type="button">+ Add Product</button></div>
+    </div>
+  </div>
+
+  <div class="hf-panel" data-hf-panel="plan" hidden>
+    <div class="card elevated"><div class="section-intro"><div><span class="eyebrow">Weekly plan</span><h3>Initial Cooking Plan</h3><p class="muted">Planned quantity by weekday. Blank or 0 means not planned. Staff can adjust the actual cooking without changing this plan.</p></div><div><span id="hfPlanDirty" class="hf-unsaved" hidden>Unsaved changes</span> <button id="hfSavePlan" class="btn" type="button">Save Changes</button></div></div>
+      <div class="table-wrap"><table class="hf-plan-table"><thead><tr><th>Product</th><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr></thead><tbody id="hfPlanRows"></tbody></table></div>
+    </div>
+  </div>
+
+  <div class="hf-panel" data-hf-panel="reports" hidden><div class="card elevated"><div class="section-intro"><div><span class="eyebrow">Compliance output</span><h3>Compliance Reports</h3><p class="muted">Production and Hot Holding reports generated directly from operational records.</p></div><div class="hf-report-actions"><button id="hfReportToday" class="btn secondary small">Today</button><button id="hfReportWeek" class="btn secondary small">This Week</button><button id="hfPrintReport" class="btn small">Print / Save PDF</button></div></div><div class="form-grid"><label class="field"><span class="field-label">From</span><input id="hfReportFrom" type="date"></label><label class="field"><span class="field-label">To</span><input id="hfReportTo" type="date"></label></div><div id="hfReportStatus" class="hf-report-status"></div><div id="hfReportPreview" class="hf-report-preview"></div></div></div>
+  <div class="hf-panel" data-hf-panel="signoff" hidden><div class="card elevated"><span class="eyebrow">Monday-Sunday</span><h3>Weekly Sign-off</h3><p class="muted">Review the compliance week. Signed weeks lock staff edits; Manager can reopen and re-sign with full audit history.</p><label class="field"><span class="field-label">Any date in week</span><input id="hfSignoffDate" type="date"></label><div id="hfSignoffSummary" class="hf-signoff-summary"></div><label class="field"><span class="field-label">Manager comment (required when exceptions exist)</span><textarea id="hfSignoffComment" rows="3"></textarea></label><div class="hf-report-actions"><button id="hfSignWeek" class="btn">Sign Off Week</button><button id="hfReopenWeek" class="btn secondary">Reopen Week</button></div></div></div>
+
+  <div class="hf-panel" data-hf-panel="month" hidden><div class="card elevated"><div class="section-intro"><h3>Monthly Hot Food Schedule</h3><p>Planned weekday Initial Cooking alongside actual batches and generated hourly checks.</p></div><div class="nt-module-tools"><label>Month<input type="month" id="hfMonth" value="2026-10"></label><label>Product<input id="hfMonthProduct" placeholder="Filter product"></label><button id="hfLoadMonth" class="btn">Load Month</button></div><div id="hfMonthView"></div></div></div>
+  <div class="hf-panel" data-hf-panel="summary" hidden><div class="card elevated"><div class="section-intro"><h3>Workload &amp; Waste Summary</h3><p>Recorded cooking, hourly checks, stock sold out and waste. Actual records, not invented estimates.</p></div><div class="nt-module-tools"><label>Month<input type="month" id="hfSummaryMonth" value="2026-10"></label><button id="hfLoadSummary" class="btn">Load Summary</button></div><div id="hfSummaryView"></div></div></div>
+  <div class="hf-panel" data-hf-panel="audit" hidden><div class="card elevated"><div class="section-intro"><div><span class="eyebrow">Immutable change trail</span><h3>Audit History</h3><p class="muted">Operational events and corrections are retained here.</p></div></div><div class="form-grid"><label class="field"><span class="field-label">Staff</span><input id="hfAuditStaff" placeholder="Filter staff"></label><label class="field"><span class="field-label">Event type</span><input id="hfAuditType" placeholder="e.g. cooking, correction"></label><label class="field"><span class="field-label">From date</span><input id="hfAuditFrom" type="date"></label><label class="field"><span class="field-label">To date</span><input id="hfAuditTo" type="date"></label></div><div class="table-wrap"><table><thead><tr><th>When</th><th>By</th><th>Event</th><th>Details</th></tr></thead><tbody id="hfAuditRows"></tbody></table></div></div></div>
+
+  <div class="hf-panel" data-hf-panel="settings" hidden>
+    <div class="card elevated"><div class="section-intro"><div><span class="eyebrow">Feature flag</span><h3>Module control</h3><p class="muted">Deploy safely with Hot Food off, then enable it when ready. It cannot be disabled while active batches or outstanding Hot Food tasks exist.</p></div><label class="hf-switch"><input id="hfEnableToggle" type="checkbox"><span></span><b>Hot Food enabled</b></label></div></div>
+    <div class="card elevated"><span class="eyebrow">Going-forward rules</span><h3>Compliance Settings</h3><div class="form-grid hf-settings-grid">
+      <label class="field"><span class="field-label">Core cooking pass °C</span><input id="hfCorePass" type="number" step="0.1"></label>
+      <label class="field"><span class="field-label">Hot holding pass °C</span><input id="hfHoldingPass" type="number" step="0.1"></label>
+      <label class="field"><span class="field-label">Next :55 eligibility (min)</span><input id="hfEligibility" type="number" min="0"></label>
+      <label class="field"><span class="field-label">Legacy cooking cutoff (informational; new batches allowed anytime)</span><input id="hfCutoff" type="time"></label>
+      <label class="field"><span class="field-label">Holding duration (min)</span><input id="hfHoldingMinutes" type="number" min="1"></label>
+      <label class="field"><span class="field-label">Permanent weekday Initial Cooking time</span><input id="hfInitialCookingTime" type="time" value="06:00"></label>
+      <label class="field"><span class="field-label">Initial Cooking effort minutes</span><input id="hfInitialCookingEffort" type="number" min="1" value="15"></label>
+    </div><p class="muted">Only one weekday Initial Cooking prompt is scheduled. Additional cooking uses the always-available Start Cooking button. Weekend behaviour remains unchanged.</p><button id="hfSaveSettings" class="btn" type="button">Save Settings</button></div>
+  </div>
+</section>
+
+</main>
+<script type="module" src="js/manager.js?v=4.5.9"></script>
+<script>
+// Navigation-only shortcuts. Keep the existing manager controllers and save logic intact.
+document.querySelectorAll('[data-workspace]').forEach(button=>{
+  button.addEventListener('click',()=>{
+    const target=document.querySelector('.manager-nav button[data-section="'+button.dataset.workspace+'"]');
+    if(target) target.click();
+  });
+});
+</script>
+</body></html>

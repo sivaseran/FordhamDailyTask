@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <!-- Fordham Daily Task V4.0 -->
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="theme-color" content="#0F1B2D">
+  <title>Fordham Operations</title>
+  <link rel="manifest" href="/FordhamDailyTask/manifest.json"><link rel="apple-touch-icon" href="/FordhamDailyTask/icons/general-192.png"><link rel="stylesheet" href="css/style.css?v=4.5.13">
+</head>
+<body class="nt-theme general-page">
+<header class="topbar">
+  <div class="brand"><div class="brand-mark">FD</div><div class="brand-text"><div class="brand-kicker">Fordham</div><h1>Operations</h1><p>One team. One live plan.</p></div></div>
+  <div class="top-actions">
+    <span id="connectionStatus" class="connection-pill"><span class="connection-dot"></span>Checking…</span>
+    <span id="liveClock" class="clock"></span>
+    <button id="alarmSoundSettingsButton" type="button" class="btn secondary small nt-header-bell" aria-label="Open alarm settings and test alarm" aria-controls="alarmSoundSettings" aria-expanded="false" title="Alarm settings and test alarm">🔔 <span class="alarm-sound-button-label">Alarm</span></button>
+    <a class="btn general-login-btn" href="login.html" title="Staff or Manager PIN Login">Login</a>
+  </div>
+</header>
+
+<section id="alarmSoundSettings" class="shop-alarm-settings" aria-labelledby="alarmSoundSettingsTitle" hidden>
+  <div class="shop-alarm-settings-head">
+    <div><h2 id="alarmSoundSettingsTitle">Alarm settings &amp; test</h2><p>Only changes the alarm on this device. The tablet media volume must also be turned up.</p></div>
+    <button id="closeAlarmSoundSettings" class="btn secondary small" type="button" aria-label="Close alarm settings">✕</button>
+  </div>
+  <div class="nt-alarm-primary"><button id="enableAlerts" class="btn secondary alert-toggle-btn" type="button" title="Enable overdue sound and tablet notifications">Enable Alerts</button><button id="testShopAlarm" class="btn secondary small" type="button">Test Alarm</button></div>
+  <fieldset class="shop-alarm-choices">
+    <legend>Choose a sound</legend>
+    <label><input type="radio" name="ntAlarmTone" value="classic"> <span><strong>Classic Beep</strong><small>Three clear electronic beeps</small></span></label>
+    <label><input type="radio" name="ntAlarmTone" value="double"> <span><strong>Double Beep</strong><small>Two short tones, then a pause</small></span></label>
+    <label><input type="radio" name="ntAlarmTone" value="chime"> <span><strong>Soft Chime</strong><small>Gentle two-tone chime</small></span></label>
+    <label><input type="radio" name="ntAlarmTone" value="attention"> <span><strong>Attention Alert</strong><small>Alternating high and low notes</small></span></label>
+  </fieldset>
+  <div class="shop-alarm-volume"><label for="alarmVolume">Alarm volume <output id="alarmVolumeValue" for="alarmVolume">55%</output></label><input id="alarmVolume" type="range" min="10" max="100" step="5" value="55"></div>
+  <div class="shop-alarm-settings-actions"><button id="previewAlarmSound" class="btn secondary" type="button">▶ Test Sound</button><button id="cancelAlarmSoundSettings" class="btn secondary" type="button">Cancel</button><button id="saveAlarmSoundSettings" class="btn" type="button">Save Settings</button></div>
+  <p id="alarmSoundFeedback" class="shop-alarm-settings-feedback" role="status" aria-live="polite"></p>
+</section>
+
+<main class="container">
+  <div class="page-heading">
+    <div><span class="eyebrow">Live store view</span><h2 id="pageTitle">Today at a glance</h2><p id="dateLabel"></p></div>
+    <div class="segmented"><button id="todayTab" class="active" type="button">Day</button><button id="weekTab" type="button">Week</button></div>
+  </div>
+
+  <div class="date-navigator card compact-card">
+    <button id="prevDate" class="btn secondary square-btn" type="button" aria-label="Previous">←</button>
+    <div class="date-nav-center"><strong id="navDateText"></strong><input id="datePicker" type="date"></div>
+    <button id="nextDate" class="btn secondary square-btn" type="button" aria-label="Next">→</button>
+    <button id="goToday" class="btn secondary small" type="button">Today</button>
+  </div>
+
+  <section id="todayView">
+    <div class="stats-grid">
+      <article class="stat-card primary"><span>Overall progress</span><strong id="overallPct">0%</strong><small id="overallCount">Loading…</small></article>
+      <article class="stat-card good"><span>Completed</span><strong id="completedCount">0</strong><small>finished tasks</small></article>
+      <article class="stat-card"><span>Remaining</span><strong id="remainingCount">0</strong><small>active tasks</small></article>
+      <article class="stat-card alert"><span>Needs attention</span><strong id="overdueCount">0</strong><small>overdue / missed</small></article>
+    </div>
+
+    <div id="slotSchedule"></div>
+  </section>
+
+  <section id="weekView" hidden>
+    <div id="weekSummary" class="week-summary-grid"></div>
+    <div class="week-toolbar">
+      <div><span class="eyebrow">Planning view</span><h3>Week at a glance</h3><p>Fixed operational slots with named assignees. Historical weeks show saved daily records where available.</p></div>
+    </div>
+    <div id="weekSchedule"></div>
+  </section>
+</main>
+<script type="module" src="js/general.js"></script>
+</body></html>
