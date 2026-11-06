@@ -1,0 +1,25 @@
+{
+  "id": "/FordhamDailyTask/staff-app/",
+  "name": "Fordham Staff Tasks",
+  "short_name": "FD Staff",
+  "description": "Personal daily task list for Fordham staff.",
+  "start_url": "/FordhamDailyTask/staff-app/",
+  "scope": "/FordhamDailyTask/staff-app/",
+  "display": "standalone",
+  "background_color": "#0F1B2D",
+  "theme_color": "#0F1B2D",
+  "icons": [
+    {
+      "src": "/FordhamDailyTask/staff-app/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/FordhamDailyTask/staff-app/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
