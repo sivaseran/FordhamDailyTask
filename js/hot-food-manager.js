@@ -1,0 +1,228 @@
+import {getSession} from './auth.js';
+import {escapeHtml,showToast,confirmAction,setButtonLoading,runActionOnce,protectClickHandler} from './ui.js';
+import {
+  HOT_FOOD_DAYS,getHotFoodConfig,saveHotFoodConfig,setHotFoodEnabled,
+  getHotFoodProducts,saveHotFoodProduct,setHotFoodProductActive,
+  getInitialCookingPlan,saveInitialCookingPlan,ensureInitialCookingBaseline,getHotFoodAudit,getHotFoodComplianceData,getWeekSignoff,signOffHotFoodWeek,reopenHotFoodWeek,mondayOf,sundayOf,managerCorrectHotFoodRecord,syncFutureInitialCookingPrompts
+} from './hot-food-store.js';
+
+const $=s=>document.querySelector(s);
+const user=getSession();
+let config=null,products=[],plan={},dirtyPlan=false,initialised=false;
+
+function moduleState(){
+  const on=Boolean(config?.enabled);
+  $('#hfStateBadge').textContent=on?'ENABLED':'DISABLED';
+  $('#hfStateBadge').className=`hf-state-badge ${on?'enabled':'disabled'}`;
+  $('#hfEnableToggle').checked=on;
+  $('#hfDisabledNotice').hidden=on;
+}
+
+async function loadSettings(){
+  config=await getHotFoodConfig(); moduleState();
+  $('#hfCorePass').value=config.corePassC;
+  $('#hfHoldingPass').value=config.holdingPassC;
+  $('#hfEligibility').value=config.eligibilityMinutes;
+  $('#hfCutoff').value=config.cookingCutoff;
+  $('#hfHoldingMinutes').value=config.holdingMinutes;
+  $('#hfInitialCookingTime').value=config.initialCookingTime||'06:00';
+  $('#hfInitialCookingEffort').value=Number(config.initialCookingEffortMinutes||15);
+}
+
+async function loadProducts(){
+  products=await getHotFoodProducts();
+  $('#hfProductRows').innerHTML=products.length?products.map(p=>`<tr data-id="${p.id}"><td><input class="hf-product-name" value="${escapeHtml(p.name||'')}"></td><td>${p.active===false?'<span class="hf-pill muted">Inactive</span>':'<span class="hf-pill good">Active</span>'}</td><td class="hf-actions"><button class="btn secondary small hf-save-product">Save</button><button class="btn secondary small hf-toggle-product">${p.active===false?'Reactivate':'Deactivate'}</button></td></tr>`).join(''):'<tr><td colspan="3" class="muted">No Hot Food products yet. Add the first product below.</td></tr>';
+}
+
+function planCell(product,day){
+  const value=Number(plan?.[product.id]?.[day]||0)||'';
+  return `<td><input class="hf-plan-qty" data-product="${product.id}" data-day="${day}" type="number" min="0" step="1" value="${value}" placeholder="—"></td>`;
+}
+function renderPlan(){
+  const active=products.filter(p=>p.active!==false);
+  $('#hfPlanRows').innerHTML=active.length?active.map(p=>`<tr><th>${escapeHtml(p.name)}</th>${HOT_FOOD_DAYS.map(d=>planCell(p,d)).join('')}</tr>`).join(''):'<tr><td colspan="8" class="muted">Add active Hot Food products first.</td></tr>';
+  $('#hfPlanDirty').hidden=!dirtyPlan;
+}
+async function loadPlan(){plan=await getInitialCookingPlan();dirtyPlan=false;renderPlan();}
+
+async function loadAudit(){
+  const staff=($('#hfAuditStaff')?.value||'').toLowerCase(),type=($('#hfAuditType')?.value||'').toLowerCase(),from=$('#hfAuditFrom')?.value||'',to=$('#hfAuditTo')?.value||''; const rows=(await getHotFoodAudit()).filter(r=>(!staff||String(r.actorName||'').toLowerCase().includes(staff))&&(!type||String(r.type||'').toLowerCase().includes(type))&&(!from||new Date(r.createdAtMs||0).toISOString().slice(0,10)>=from)&&(!to||new Date(r.createdAtMs||0).toISOString().slice(0,10)<=to)).slice(0,300);
+  $('#hfAuditRows').innerHTML=rows.length?rows.map(r=>`<tr><td>${r.createdAtMs?new Date(r.createdAtMs).toLocaleString('en-GB'):'—'}</td><td>${escapeHtml(r.actorName||'System')}</td><td>${escapeHtml(String(r.type||'').replaceAll('_',' '))}</td><td><code>${escapeHtml(JSON.stringify(r.details||{}))}</code></td></tr>`).join(''):'<tr><td colspan="4" class="muted">No Hot Food audit events yet.</td></tr>';
+}
+
+
+const iso=d=>{const x=new Date(d);return `${x.getFullYear()}-${String(x.getMonth()+1).padStart(2,'0')}-${String(x.getDate()).padStart(2,'0')}`};
+function reportHtml(data,start,end,signoffs=[]){
+ const prod=data.batches.map(b=>`<tr><td>${escapeHtml(b.date)}</td><td></td><td>${escapeHtml(b.productName||'')}</td><td>${b.qtyCooked??''}</td><td>${escapeHtml(b.timeOutOven||'')}</td><td>${b.coreTempC??''}</td><td>${escapeHtml(b.createdByName||'')}</td><td>${escapeHtml(b.sellOutTime||'')}</td><td>${b.quantityWasted||0}</td><td><button class="btn secondary small hf-correct-batch" data-id="${b.id}">Correct</button></td></tr>`).join('');
+ const hold=data.checks.flatMap(c=>(c.readings||[]).map(r=>`<tr><td>${escapeHtml(c.date)}</td><td>${escapeHtml((c.scheduledTimes||[]).join(', '))}</td><td>${escapeHtml(r.productName||'')}</td><td>${r.qty??''}</td><td>${r.temperatureC??''}</td><td>${escapeHtml(c.performedByName||'')}</td><td>${r.wasted>0?'Wasted':r.qty===0?'Sold Out':r.failed?'FAIL / WASTED':'Recorded'}</td><td><button class="btn secondary small hf-correct-check" data-id="${c.id}" data-time="${escapeHtml(c.actualReadingTime||'')}">Correct time</button></td></tr>`)).join('');
+ const allSigned=signoffs.length&&signoffs.every(x=>x.status==='signed');const draft=allSigned?'SIGNED PERIOD':'DRAFT — ONE OR MORE WEEKS NOT YET SIGNED OFF';
+ const signBlock=signoffs.length?`<h3>Weekly Sign-off</h3><div class="hf-signoff-report">${signoffs.map(x=>`<p><b>${escapeHtml(x.weekStart)} — ${escapeHtml(x.weekEnd)}</b>: ${x.status==='signed'?`SIGNED — ${escapeHtml(x.signedByName||'Manager')} · ${x.signedAtMs?new Date(x.signedAtMs).toLocaleString('en-GB'):''}${x.comment?` · ${escapeHtml(x.comment)}`:''}`:'DRAFT — NOT YET SIGNED OFF'}</p>`).join('')}</div>`:'';
+ return `<div class="hf-paper"><header><h2>FORDHAM SERVICE STATION</h2><h3>CountryChoice — Hot Food Temperature & Production Control Sheet</h3><p>${escapeHtml(start)} to ${escapeHtml(end)} · <b>${draft}</b></p></header><h3>Production Control</h3><div class="table-wrap"><table><thead><tr><th>Date</th><th>Component Product</th><th>Final Product</th><th>Qty</th><th>Time Out Oven</th><th>Core Temp °C</th><th>Staff Name</th><th>Sell Out Time</th><th>Qty Wasted</th><th></th></tr></thead><tbody>${prod||'<tr><td colspan="10">No production records</td></tr>'}</tbody></table></div><h3>Hot Holding Temperature Log</h3><div class="table-wrap"><table><thead><tr><th>Date</th><th>Scheduled</th><th>Product</th><th>Current Qty</th><th>Lowest °C</th><th>Staff</th><th>Status</th><th></th></tr></thead><tbody>${hold||'<tr><td colspan="8">No holding records</td></tr>'}</tbody></table></div>${data.exceptions.length?`<h3>Exceptions</h3><ul>${data.exceptions.map(x=>`<li>${escapeHtml(x.date)} — ${escapeHtml(x.description)}</li>`).join('')}</ul>`:''}${signBlock}</div>`;
+}
+async function loadReport(){const a=$('#hfReportFrom')?.value,b=$('#hfReportTo')?.value;if(!a||!b)return;if(a>b){showToast('From date must be before To date.','warning');return;}const data=await getHotFoodComplianceData(a,b);const signoffs=[];let w=mondayOf(a);while(w<=b){signoffs.push(await getWeekSignoff(w));const d=new Date(w+'T12:00:00');d.setDate(d.getDate()+7);w=iso(d);}$('#hfReportStatus').innerHTML=`<b>${data.batches.length}</b> production rows · <b>${data.checks.length}</b> reading event(s) · <b>${data.exceptions.length}</b> exception(s) · <b>${signoffs.filter(x=>x.status==='signed').length}/${signoffs.length}</b> week(s) signed`;$('#hfReportPreview').innerHTML=reportHtml(data,a,b,signoffs);}
+async function loadSignoff(){const d=$('#hfSignoffDate')?.value;if(!d)return;const s=await getWeekSignoff(d),data=await getHotFoodComplianceData(s.weekStart,s.weekEnd);$('#hfSignoffSummary').innerHTML=`<div class="hf-sign-card"><b>${s.weekStart} — ${s.weekEnd}</b><span class="hf-pill ${s.status==='signed'?'good':'muted'}">${s.status==='signed'?'SIGNED':'DRAFT'}</span><p>${data.batches.length} production row(s) · ${data.checks.length} reading event(s) · <b>${data.exceptions.length} exception(s)</b></p>${s.status==='signed'?`<p>Signed by ${escapeHtml(s.signedByName||'Manager')} ${s.signedAtMs?new Date(s.signedAtMs).toLocaleString('en-GB'):''}</p>`:''}</div>`;$('#hfSignWeek').disabled=s.status==='signed';$('#hfReopenWeek').disabled=s.status!=='signed';if(s.comment)$('#hfSignoffComment').value=s.comment;}
+
+// Correct records in a stable, editable form. Native browser prompts discard
+// all values when a later validation/save fails, so never use them here.
+function editReportRecord(title,fields,save){
+  return new Promise(resolve=>{
+    const wrap=document.createElement('div');wrap.className='modal-overlay hf-modal-overlay';
+    wrap.innerHTML=`<section class="modal hf-modal hf-manager-correction" role="dialog" aria-modal="true" aria-label="${escapeHtml(title)}"><h2>${escapeHtml(title)}</h2><div class="hf-correction-fields">${fields.map(f=>`<label>${escapeHtml(f.label)}<input data-correction="${escapeHtml(f.key)}" type="${f.type||'text'}" step="${f.type==='number'?'0.1':''}" value="${escapeHtml(f.value??'')}" placeholder="${escapeHtml(f.placeholder||'')}"></label>`).join('')}</div><div class="hf-validation-error" role="alert" aria-live="assertive"></div><div class="modal-actions"><button type="button" class="btn secondary" data-cancel>Cancel</button><button type="button" class="btn" data-save>Save Correction</button></div></section>`;
+    document.body.append(wrap);
+    const button=wrap.querySelector('[data-save]'),error=wrap.querySelector('.hf-validation-error');
+    const close=ok=>{wrap.remove();resolve(ok);};
+    wrap.querySelector('[data-cancel]').onclick=()=>{if(!button.disabled)close(false);};
+    button.onclick=async()=>{
+      const values=Object.fromEntries(fields.map(f=>[f.key,wrap.querySelector(`[data-correction="${f.key}"]`).value]));
+      try{
+        for(const key of Object.keys(values)){
+          if(/time/i.test(key)&&values[key]&&!/^([01]\d|2[0-3]):[0-5]\d$/.test(values[key]))throw new Error('Enter times as HH:MM.');
+        }
+        if('coreTempC'in values&&(values.coreTempC.trim()===''||!Number.isFinite(Number(values.coreTempC))||Number(values.coreTempC)<-50||Number(values.coreTempC)>200))throw new Error('Core temperature must be between −50°C and 200°C.');
+        if('quantityWasted'in values&&(!/^\d+$/.test(values.quantityWasted)))throw new Error('Quantity wasted must be a whole number of zero or more.');
+        button.disabled=true;button.textContent='Saving…';error.textContent='';
+        await save(values);close(true);
+      }catch(e){error.textContent=e?.message||'Could not save. Entries are still here for correction.';button.disabled=false;button.textContent='Save Correction';}
+    };
+  });
+}
+// Monthly management views are read-only; never generate or overwrite tasks when opened.
+const monthDates=m=>{const [y,mo]=m.split('-').map(Number),last=String(new Date(y,mo,0).getDate()).padStart(2,'0');return [m+'-01',m+'-'+last]};
+function summaryBoxes(items){return `<div class="nt-module-grid">${items.map(([label,val])=>`<div class="nt-module-stat"><small>${escapeHtml(label)}</small><strong>${escapeHtml(String(val))}</strong></div>`).join('')}</div>`;}
+async function loadHotMonth(){
+  const m=$('#hfMonth')?.value;if(!m)return;const [from,to]=monthDates(m),term=String($('#hfMonthProduct')?.value||'').trim().toLowerCase();
+  try{const data=await getHotFoodComplianceData(from,to),rows=[],actual=data.tasks;
+    const start=new Date(from+'T12:00:00'),end=new Date(to+'T12:00:00');
+    for(let date=start;date<=end;date.setDate(date.getDate()+1)){
+      const ds=`${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+      if(date.getDay()>0&&date.getDay()<6){const found=actual.find(t=>t.date===ds&&t.hotFoodType==='cooking_initial');rows.push({date:ds,time:found?.sourceTime||config.initialCookingTime||'06:00',type:'Planned Initial Cooking',name:'Initial Cooking',person:found?.assignedName||'Recurring assignee',status:found?.status||'Scheduled'});}
+    }
+    for(const b of data.batches)rows.push({date:b.date,time:b.timeOutOven||'',type:'Actual cooking batch',name:b.productName||'',person:b.createdByName||'',status:b.status||'Recorded'});
+    for(const t of actual.filter(x=>['temperature_check','expiry','expiry_session'].includes(x.hotFoodType)))rows.push({date:t.date,time:t.sourceTime||'',type:['expiry','expiry_session'].includes(t.hotFoodType)?'Four-hour final check':'Hourly display check',name:t.taskName||'',person:t.assignedName||'',status:t.status||'Pending'});
+    rows.sort((a,b)=>a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
+    const visible=rows.filter(r=>!term||r.name.toLowerCase().includes(term));
+    $('#hfMonthView').innerHTML=summaryBoxes([['Cooking prompts',rows.filter(r=>r.type==='Planned Initial Cooking').length],['Actual batches',data.batches.length],['Hourly checks',actual.filter(x=>x.hotFoodType==='temperature_check').length],['Outstanding disposal',data.batches.filter(x=>x.disposalConfirmed===false&&Number(b.finalExpiryWasteQty??b.autoExpiryWasteQty??0)>0).length]])+`<div class="nt-module-table-wrap"><table class="nt-module-table"><thead><tr><th>Date</th><th>Time</th><th>Activity</th><th>Product / task</th><th>Staff</th><th>Status</th></tr></thead><tbody>${visible.map(r=>`<tr><td>${escapeHtml(r.date)}</td><td>${escapeHtml(r.time)}</td><td>${escapeHtml(r.type)}</td><td>${escapeHtml(r.name)}</td><td>${escapeHtml(r.person)}</td><td>${escapeHtml(r.status)}</td></tr>`).join('')||'<tr><td colspan="6">No matching entries</td></tr>'}</tbody></table></div>`;
+  }catch(e){$('#hfMonthView').textContent=e.message||'Could not load Hot Food month.';}
+}
+async function loadHotSummary(){const m=$('#hfSummaryMonth')?.value;if(!m)return;const [from,to]=monthDates(m);
+  try{const data=await getHotFoodComplianceData(from,to);const byStaff=new Map();
+    for(const b of data.batches){const who=b.createdByName||'Unassigned',s=byStaff.get(who)||{batches:0,qty:0,waste:0};s.batches++;s.qty+=Number(b.qtyCooked||0);s.waste+=Number(b.quantityWasted||0);byStaff.set(who,s);}
+    const qty=data.batches.reduce((n,b)=>n+Number(b.qtyCooked||0),0),waste=data.batches.reduce((n,b)=>n+Number(b.quantityWasted||0),0);
+    const soldOut=data.batches.filter(b=>b.closeReason==='sold').length;
+    $('#hfSummaryView').innerHTML=summaryBoxes([['Batches',data.batches.length],['Items cooked',qty],['Items wasted',waste],['Sold-out batches',soldOut],['Reading events',data.checks.length],['Disposal pending',data.batches.filter(b=>b.disposalConfirmed===false&&Number(b.finalExpiryWasteQty??b.autoExpiryWasteQty??0)>0).length]])+`<h3>Production by cooking staff</h3><div class="nt-module-table-wrap"><table class="nt-module-table"><thead><tr><th>Staff</th><th>Batches</th><th>Quantity cooked</th><th>Quantity wasted</th></tr></thead><tbody>${[...byStaff].map(([who,a])=>`<tr><td>${escapeHtml(who)}</td><td>${a.batches}</td><td>${a.qty}</td><td>${a.waste}</td></tr>`).join('')||'<tr><td colspan="4">No production records</td></tr>'}</tbody></table></div>`;
+  }catch(e){$('#hfSummaryView').textContent=e.message||'Could not load summary.';}
+}
+export async function initHotFoodManager(){
+  if(!$('#hotfood')) return;
+  await ensureInitialCookingBaseline(user);
+  if(initialised){await Promise.all([loadSettings(),loadProducts()]);await loadPlan();return;}
+  initialised=true;
+  await Promise.all([loadSettings(),loadProducts()]);
+  await loadPlan();
+  $('#hfMonth').value=iso(new Date()).slice(0,7);$('#hfSummaryMonth').value=iso(new Date()).slice(0,7);
+  $('#hfLoadMonth').onclick=loadHotMonth;$('#hfLoadSummary').onclick=loadHotSummary;
+
+  document.querySelectorAll('.hf-subnav button').forEach(btn=>btn.onclick=async()=>{
+    document.querySelectorAll('.hf-subnav button').forEach(b=>b.classList.toggle('active',b===btn));
+    document.querySelectorAll('.hf-panel').forEach(p=>p.hidden=p.dataset.hfPanel!==btn.dataset.hfTarget);
+    if(btn.dataset.hfTarget==='month') await loadHotMonth(); if(btn.dataset.hfTarget==='summary') await loadHotSummary();
+    if(btn.dataset.hfTarget==='audit') await loadAudit(); if(btn.dataset.hfTarget==='reports') await loadReport(); if(btn.dataset.hfTarget==='signoff') await loadSignoff();
+  });
+
+  let hotFoodTogglePending=false;
+  $('#hfEnableToggle').onchange=async e=>{
+    if(hotFoodTogglePending)return;
+    hotFoodTogglePending=true;
+    const desired=e.target.checked;
+    e.target.disabled=true;
+    if(desired){
+      const ok=await confirmAction({title:'Enable Hot Food & Compliance?',message:'This will make the Hot Food module available. Existing Fordham features remain unchanged.',confirmText:'Enable Hot Food'});
+      if(!ok){e.target.checked=false;e.target.disabled=false;hotFoodTogglePending=false;return;}
+    }
+    try{
+      const result=await setHotFoodEnabled(desired,user);
+      if(!result.ok){
+        e.target.checked=true;
+        showToast(`Cannot disable yet: ${result.activeBatches} active batch(es) and ${result.outstandingTasks} outstanding Hot Food task(s).`,'warning');
+      }else{
+        config={...config,enabled:desired}; moduleState();
+        showToast(`Hot Food module ${desired?'enabled':'disabled'}.`,'success');
+      }
+    }catch(err){e.target.checked=!desired;showToast(err.message||'Could not change module state.','error');}
+    finally{e.target.disabled=false;hotFoodTogglePending=false;}
+  };
+
+  $('#hfSaveSettings').onclick=async e=>{ 
+    const btn=e.currentTarget;setButtonLoading(btn,true);
+    try{
+      const changes={corePassC:Number($('#hfCorePass').value),holdingPassC:Number($('#hfHoldingPass').value),eligibilityMinutes:Number($('#hfEligibility').value),cookingCutoff:$('#hfCutoff').value,holdingMinutes:Number($('#hfHoldingMinutes').value),initialCookingTime:$('#hfInitialCookingTime').value,initialCookingEffortMinutes:Number($('#hfInitialCookingEffort').value)};
+      if(!(changes.corePassC>0&&changes.holdingPassC>0&&changes.eligibilityMinutes>=0&&changes.holdingMinutes>0&&changes.cookingCutoff&&/^([01]\d|2[0-3]):[0-5]\d$/.test(changes.initialCookingTime)&&changes.initialCookingEffortMinutes>0)) throw new Error('Check all Hot Food settings.');
+      config=await saveHotFoodConfig(changes,user);await syncFutureInitialCookingPrompts({time:changes.initialCookingTime,effortMinutes:changes.initialCookingEffortMinutes},user);showToast('Hot Food settings saved.','success');
+    }catch(err){showToast(err.message||'Could not save settings.','error');}finally{setButtonLoading(btn,false);}
+  };
+
+  protectClickHandler($('#hfSaveSettings'));
+  $('#hfAddProduct').onclick=async()=>{ 
+    const name=$('#hfNewProduct').value.trim();if(!name){showToast('Enter a product name.','warning');return;}
+    try{await saveHotFoodProduct({name,active:true},user);$('#hfNewProduct').value='';await loadProducts();renderPlan();showToast('Hot Food product added.','success');}catch(err){showToast(err.message||'Could not add product.','error');}
+  };
+  protectClickHandler($('#hfAddProduct'));
+  $('#hfProductRows').onclick=async e=>{ 
+    const row=e.target.closest('tr[data-id]');if(!row)return;
+    const target=e.target.closest('.hf-save-product,.hf-toggle-product');if(!target)return;
+    return runActionOnce(target,async()=>{
+    const item=products.find(p=>p.id===row.dataset.id);if(!item)return;
+    try{
+      if(e.target.closest('.hf-save-product')) await saveHotFoodProduct({id:item.id,name:row.querySelector('.hf-product-name').value,active:item.active!==false},user);
+      if(e.target.closest('.hf-toggle-product')) await setHotFoodProductActive(item.id,item.active===false,user);
+      await loadProducts();renderPlan();showToast('Product updated.','success');
+    }catch(err){showToast(err.message||'Could not update product.','error');}
+    });
+  };
+
+  $('#hfPlanRows').oninput=e=>{if(e.target.classList.contains('hf-plan-qty')){dirtyPlan=true;$('#hfPlanDirty').hidden=false;}};
+  $('#hfSavePlan').onclick=async e=>{ 
+    const next={};document.querySelectorAll('.hf-plan-qty').forEach(input=>{const n=Math.max(0,Math.floor(Number(input.value)||0));if(n){next[input.dataset.product]??={};next[input.dataset.product][input.dataset.day]=n;}});
+    const btn=e.currentTarget;setButtonLoading(btn,true);
+    try{await saveInitialCookingPlan(next,user);plan=next;dirtyPlan=false;renderPlan();showToast('Initial Cooking Plan saved.','success');}catch(err){showToast(err.message||'Could not save plan.','error');}finally{setButtonLoading(btn,false);}
+  };
+
+  protectClickHandler($('#hfSavePlan'));
+  const today=iso(new Date()); if($('#hfReportFrom')){$('#hfReportFrom').value=today;$('#hfReportTo').value=today;$('#hfSignoffDate').value=today;}
+  $('#hfReportPreview')?.addEventListener('click',async event=>{
+    try{
+      const batchButton=event.target.closest('.hf-correct-batch');
+      if(batchButton)return await runActionOnce(batchButton,async()=>{
+        const data=await getHotFoodComplianceData($('#hfReportFrom').value,$('#hfReportTo').value);
+        const row=data.batches.find(x=>x.id===batchButton.dataset.id);if(!row)return;
+        const saved=await editReportRecord('Correct Hot Food production record',[
+          {key:'coreTempC',label:'Core temperature °C',type:'number',value:row.coreTempC??''},
+          {key:'sellOutTime',label:'Sell Out Time (if sold)',type:'time',value:row.sellOutTime||''},
+          {key:'quantityWasted',label:'Quantity wasted',type:'number',value:row.quantityWasted||0}
+        ],async values=>managerCorrectHotFoodRecord('batch',row.id,{coreTempC:Number(values.coreTempC),sellOutTime:values.sellOutTime,quantityWasted:Number(values.quantityWasted)},user));
+        if(saved){showToast('Production record corrected; original retained in audit.','success');await loadReport();}
+        return;
+      });
+      const checkButton=event.target.closest('.hf-correct-check');
+      if(checkButton)return await runActionOnce(checkButton,async()=>{
+        const saved=await editReportRecord('Correct temperature reading time',[
+          {key:'actualReadingTime',label:'Actual reading time (HH:MM)',type:'time',value:checkButton.dataset.time||''}
+        ],async values=>{
+          if(!values.actualReadingTime)throw new Error('Enter the actual reading time.');
+          await managerCorrectHotFoodRecord('check',checkButton.dataset.id,{actualReadingTime:values.actualReadingTime},user);
+        });
+        if(saved){showToast('Reading time corrected; original retained in audit.','success');await loadReport();}
+      });
+    }catch(error){showToast(error.message||'Could not correct record.','error');}
+  });
+  $('#hfReportFrom')?.addEventListener('change',loadReport);$('#hfReportTo')?.addEventListener('change',loadReport);
+  $('#hfReportToday')?.addEventListener('click',()=>{$('#hfReportFrom').value=today;$('#hfReportTo').value=today;loadReport()});
+  $('#hfReportWeek')?.addEventListener('click',()=>{$('#hfReportFrom').value=mondayOf(today);$('#hfReportTo').value=sundayOf(today);loadReport()});
+  $('#hfPrintReport')?.addEventListener('click',()=>{const html=$('#hfReportPreview').innerHTML;if(!html){showToast('Load a report first.','warning');return;}const w=window.open('','_blank');w.document.write(`<html><head><title>Hot Food Compliance Report</title><style>body{font-family:Arial;padding:18px;color:#111}h2,h3{text-align:center}table{border-collapse:collapse;width:100%;font-size:11px;margin:12px 0 24px}th,td{border:1px solid #555;padding:5px}th{background:#eee}@media print{button{display:none}}</style></head><body>${html}<script>window.onload=()=>window.print()<\/script></body></html>`);w.document.close();});
+  $('#hfSignoffDate')?.addEventListener('change',loadSignoff);
+  $('#hfSignWeek')?.addEventListener('click',()=>runActionOnce($('#hfSignWeek'),async()=>{try{const ok=await confirmAction({title:'Sign off this compliance week?',message:'Staff editing for this Monday-Sunday week will be locked.',confirmText:'Sign Off Week'});if(!ok)return;await signOffHotFoodWeek($('#hfSignoffDate').value,$('#hfSignoffComment').value,user);showToast('Compliance week signed off.','success');await loadSignoff();}catch(e){showToast(e.message||'Could not sign off week.','error')}}));
+  $('#hfReopenWeek')?.addEventListener('click',()=>runActionOnce($('#hfReopenWeek'),async()=>{try{const ok=await confirmAction({title:'Reopen this compliance week?',message:'The week will return to Draft and can be corrected before re-signing.',confirmText:'Reopen Week'});if(!ok)return;await reopenHotFoodWeek($('#hfSignoffDate').value,user);showToast('Compliance week reopened.','success');await loadSignoff();}catch(e){showToast(e.message||'Could not reopen week.','error')}}));
+  ['hfAuditStaff','hfAuditType','hfAuditFrom','hfAuditTo'].forEach(id=>$('#'+id)?.addEventListener('input',loadAudit));
+
+  window.addEventListener('beforeunload',e=>{if(dirtyPlan){e.preventDefault();e.returnValue='';}});
+}
