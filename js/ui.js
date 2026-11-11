@@ -357,7 +357,7 @@ function showAppUpdateDialog(worker,registration){
       ntUpdateInProgress=false;
       button.disabled=false;
       button.textContent='Retry update';
-      status.textContent='Update is taking longer than expected. Try again, or continue using the current screen.';
+      status.textContent='The update is waiting for this app to close. Close every Fordham Daily Task tab or app window, then open it again. Nothing is lost.';
     },12000);
   });
   // Avoid leaving a stale modal if another tab activates the update.
