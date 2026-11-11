@@ -1,4 +1,4 @@
-const CACHE='fordham-staff-v1-0-2-20261107';
+const CACHE='fordham-staff-v1-0-3-20261107';
 const PREFIX='fordham-staff-';
 const ASSETS=[
 '/FordhamDailyTask/staff-app/','/FordhamDailyTask/staff-app/index.html','/FordhamDailyTask/staff-app/tasks.html','/FordhamDailyTask/staff-app/manifest.json','/FordhamDailyTask/staff-app/app.js','/FordhamDailyTask/staff-app/tasks.js','/FordhamDailyTask/staff-app/icons/icon-192.png','/FordhamDailyTask/staff-app/icons/icon-512.png','/FordhamDailyTask/css/style.css',
@@ -6,6 +6,6 @@ const ASSETS=[
 ];
 self.addEventListener('install',e=>e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS))));
 self.addEventListener('activate',e=>e.waitUntil(caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith(PREFIX)&&k!==CACHE).map(k=>caches.delete(k)))).then(()=>self.clients.claim())));
-self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url),fresh=/\.(?:js|html)$/.test(u.pathname);if(fresh){e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c));return r;}).catch(()=>caches.match(e.request)));return;}e.respondWith(caches.match(e.request).then(c=>c||fetch(e.request)));});
+self.addEventListener('fetch',e=>{if(e.request.method!=='GET')return;const u=new URL(e.request.url),fresh=/\.(?:js|html)$/.test(u.pathname);if(u.origin!==self.location.origin)return;if(fresh){e.respondWith(fetch(e.request).then(r=>{const c=r.clone();caches.open(CACHE).then(x=>x.put(e.request,c));return r;}).catch(()=>caches.match(e.request)));return;}e.respondWith(caches.match(e.request).then(c=>c||fetch(e.request)));});
 self.addEventListener('message',e=>{if(e.data?.type==='SKIP_WAITING')self.skipWaiting();});
 self.addEventListener('notificationclick',e=>{e.notification.close();e.waitUntil(clients.openWindow('/FordhamDailyTask/staff-app/'));});
