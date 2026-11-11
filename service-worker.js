@@ -1,4 +1,4 @@
-const CACHE='fordham-general-v1-0-2-20261107';
+const CACHE='fordham-general-v1-0-3-20261107';
 const CACHE_PREFIX='fordham-general-';
 const ASSETS=[
   '/FordhamDailyTask/',
@@ -48,6 +48,10 @@ self.addEventListener('activate',event=>{
 self.addEventListener('fetch',event=>{
   if(event.request.method!=='GET') return;
   const url=new URL(event.request.url);
+  // Never handle other sites (Firebase/Firestore, Google fonts, SDK files). Firestore keeps
+  // long-running requests open; if this worker handled them, a new app version could not
+  // take over until they finished, leaving the update prompt stuck.
+  if(url.origin!==self.location.origin) return;
   const fresh=/\.(?:js|html|css)$/.test(url.pathname)||url.pathname.endsWith('/FordhamDailyTask/');
   if(fresh){event.respondWith(fetch(event.request).then(r=>{const c=r.clone();caches.open(CACHE).then(x=>x.put(event.request,c));return r;}).catch(()=>caches.match(event.request)));return;}
   event.respondWith(caches.match(event.request).then(cached=>cached||fetch(event.request)));

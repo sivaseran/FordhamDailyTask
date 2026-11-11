@@ -1,4 +1,4 @@
-# Fordham Daily Task — V1.0.2
+# Fordham Daily Task — V1.0.3
 
 Live operations and daily-task app for Fordham Service Station. Go-live: 7 November 2026.
 
