@@ -2758,3 +2758,9 @@ body.nt-theme .completed{background:#1B2E1A;color:#7FD858}
 body.nt-theme .overdue{background:#3A1E28;color:#E5556B}
 body.nt-theme .due{background:#3A3218;color:#FFD966}
 body.nt-theme .upcoming{background:#10243A;color:#8AA0AE}
+
+body.nt-theme .nt-update-panel{background:#16263D;color:#F7F5F0;border:1px solid #28394D}
+body.nt-theme .nt-update-panel h2{color:#F7F5F0}
+body.nt-theme .nt-update-panel p{color:#8AA0AE}
+body.nt-theme .nt-update-panel .nt-update-note{color:#7FD858}
+body.nt-theme .nt-update-panel #ntUpdateStatus{color:#FFD966}
