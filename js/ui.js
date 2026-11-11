@@ -216,7 +216,7 @@ export function confirmAction({title='Confirm action', message='', details='', c
       settled = true;
       confirmationPending = false;
       overlay.hidden = true;
-      document.body.classList.remove('modal-open');
+      document.body.classList.toggle('modal-open',Boolean(document.querySelector('.modal-overlay:not([hidden])')));
       ok.removeEventListener('click', onOk);
       cancel.removeEventListener('click', onCancel);
       overlay.removeEventListener('click', onOverlay);
@@ -412,7 +412,7 @@ export function promptPin({title='Complete task',message='Enter your 4-digit sta
   return new Promise(resolve=>{
     const ok=overlay.querySelector('#pinOk'), cancel=overlay.querySelector('#pinCancel');
     const finish=v=>{
-      overlay.hidden=true; document.body.classList.remove('modal-open');
+      overlay.hidden=true; document.body.classList.toggle('modal-open',Boolean(document.querySelector('.modal-overlay:not([hidden])')));
       ok.removeEventListener('click',onOk); cancel.removeEventListener('click',onCancel);
       input.removeEventListener('keydown',onKey); overlay.removeEventListener('click',onOverlay);
       resolve(v);

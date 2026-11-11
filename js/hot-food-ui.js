@@ -12,7 +12,7 @@ function modal(title,body,confirmText,onSubmit,{kind=""}={}){
     const wrap=document.createElement('div');wrap.className='modal-overlay hf-modal-overlay';
     wrap.innerHTML=`<section class="modal hf-modal ${esc(kind)}" role="dialog" aria-modal="true" aria-label="${esc(title)}"><header class="hf-dialog-head"><h2>${esc(title)}</h2><p>Complete the required fields, then submit the record.</p></header><div class="hf-modal-body">${body}</div><div class="hf-validation-error" role="alert" aria-live="assertive"></div><div class="modal-actions"><button type="button" class="btn secondary hf-cancel">Cancel</button><button type="button" class="btn hf-confirm">${esc(confirmText)}</button></div></section>`;
     document.body.append(wrap);document.body.classList.add('modal-open');
-    const close=value=>{wrap.remove();if(!document.querySelector('.modal-overlay'))document.body.classList.remove('modal-open');resolve(value);};
+    const close=value=>{wrap.remove();document.body.classList.toggle('modal-open',Boolean(document.querySelector('.modal-overlay:not([hidden])')));resolve(value);};
     const bodyRoot=wrap.querySelector('.hf-modal-body'), error=wrap.querySelector('.hf-validation-error'),submit=wrap.querySelector('.hf-confirm');
     const warn=(message,field)=>{error.textContent=message;if(field){field.classList.add('hf-invalid');field.focus();}error.scrollIntoView({block:'nearest'});};
     wrap.addEventListener('input',e=>{if(e.target.matches('input,select')){e.target.classList.remove('hf-invalid');error.textContent='';}});
