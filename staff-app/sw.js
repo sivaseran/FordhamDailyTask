@@ -1,4 +1,4 @@
-const CACHE='fordham-staff-v1-0-0-20261107';
+const CACHE='fordham-staff-v1-0-2-20261107';
 const PREFIX='fordham-staff-';
 const ASSETS=[
 '/FordhamDailyTask/staff-app/','/FordhamDailyTask/staff-app/index.html','/FordhamDailyTask/staff-app/tasks.html','/FordhamDailyTask/staff-app/manifest.json','/FordhamDailyTask/staff-app/app.js','/FordhamDailyTask/staff-app/tasks.js','/FordhamDailyTask/staff-app/icons/icon-192.png','/FordhamDailyTask/staff-app/icons/icon-512.png','/FordhamDailyTask/css/style.css',
