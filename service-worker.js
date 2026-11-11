@@ -1,4 +1,4 @@
-const CACHE='fordham-general-v1-0-0-20261107';
+const CACHE='fordham-general-v1-0-2-20261107';
 const CACHE_PREFIX='fordham-general-';
 const ASSETS=[
   '/FordhamDailyTask/',
